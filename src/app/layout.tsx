@@ -2,6 +2,15 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
+import {
+  ClerkProvider,
+  SignedIn,
+  SignedOut,
+  SignInButton,
+} from "@clerk/nextjs";
+import ClientNavWrapper from "./components/ClientNavWrapper";
+import SupabaseAuthSync from "./components/SupabaseAuthSync";
+import SyncProfile from "./components/SyncProfile";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,57 +37,65 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <nav className="w-full bg-white dark:bg-gray-900">
-          <div className="w-full mx-auto px-4">
-            <div className="flex items-center h-16">
-              {/* Left: Navigation Links */}
-              <div className="flex flex-1 justify-start">
-                <div className="flex items-center space-x-4">
-                  <Link href="/" className="font-bold text-lg hover:underline">
-                    Home
-                  </Link>
-                  <Link href="/crop-selection" className="hover:underline">
-                    Crop Selection
-                  </Link>
-                  <Link href="/soil-management" className="hover:underline">
-                    Soil Management
-                  </Link>
-                  <Link
-                    href="/disease-identification"
-                    className="hover:underline"
-                  >
-                    Disease Identification
-                  </Link>
-                  <Link href="/weather" className="hover:underline">
-                    Weather
-                  </Link>
-                  <Link href="/community" className="hover:underline">
-                    Community
-                  </Link>
-                  <Link href="/dashboard" className="hover:underline">
-                    Dashboard
-                  </Link>
+        <ClerkProvider>
+          <SupabaseAuthSync />
+          <SyncProfile />
+          <SignedIn>
+            <nav className="w-full bg-white dark:bg-gray-900">
+              <div className="w-full mx-auto px-4">
+                <div className="flex items-center h-16">
+                  {/* Left: Navigation Links */}
+                  <div className="flex flex-1 justify-start">
+                    <div className="flex items-center space-x-4">
+                      <Link
+                        href="/"
+                        className="font-bold text-lg hover:underline"
+                      >
+                        Home
+                      </Link>
+                      <Link href="/crop-selection" className="hover:underline">
+                        Crop Selection
+                      </Link>
+                      <Link href="/soil-management" className="hover:underline">
+                        Soil Management
+                      </Link>
+                      <Link
+                        href="/disease-identification"
+                        className="hover:underline"
+                      >
+                        Disease Identification
+                      </Link>
+                      <Link href="/weather" className="hover:underline">
+                        Weather
+                      </Link>
+                      <Link href="/community" className="hover:underline">
+                        Community
+                      </Link>
+                      <Link href="/dashboard" className="hover:underline">
+                        Dashboard
+                      </Link>
+                    </div>
+                  </div>
+                  {/* Right: Auth Buttons */}
+                  <ClientNavWrapper />
                 </div>
               </div>
-              {/* Right: Auth Buttons */}
-              <div className="flex items-center space-x-2 ml-4">
-                <Link
-                  href="/login"
-                  className="px-3 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
-                >
-                  Login
-                </Link>
-                <Link
-                  href="/register"
-                  className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700"
-                >
-                  Register
-                </Link>
-              </div>
+            </nav>
+            {children}
+          </SignedIn>
+          <SignedOut>
+            <div className="flex flex-col items-center justify-center min-h-screen">
+              <h1 className="text-2xl font-bold mb-4">
+                Please sign in to use AgroYantra
+              </h1>
+              <SignInButton>
+                <button className="px-4 py-2 bg-blue-600 text-white rounded">
+                  Sign In
+                </button>
+              </SignInButton>
             </div>
-          </div>
-        </nav>
-        {children}
+          </SignedOut>
+        </ClerkProvider>
       </body>
     </html>
   );

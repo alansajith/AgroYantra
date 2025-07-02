@@ -500,6 +500,9 @@ export default function CropSelectionPage() {
           </div>
         </div>
       </div>
+      <footer className="mt-8 mb-4 text-gray-500 text-sm text-center font-[var(--font-geist-sans)]">
+        &copy; {new Date().getFullYear()} AgroYantra. Cultivating the Future.
+      </footer>
     </div>
   );
 }
