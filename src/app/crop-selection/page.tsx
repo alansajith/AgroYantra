@@ -127,7 +127,7 @@ export default function CropSelectionPage() {
                 <Leaf className="h-8 w-8 text-green-600 dark:text-green-400" />
               </div>
             </div>
-            <h1 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-4">
+            <h1 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-2">
               Smart Crop Selection
             </h1>
             <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto mb-8">
