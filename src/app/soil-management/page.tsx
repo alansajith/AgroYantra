@@ -9,6 +9,7 @@ import {
   CheckCircle,
   AlertCircle,
   Info,
+  Lightbulb,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -51,44 +52,27 @@ export default function SoilManagementPage() {
   const [ph, setPh] = useState("");
   const [moisture, setMoisture] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [result, setResult] = useState<null | {
-    status: "good" | "warning";
-    message: string;
-    recommendations: string[];
-  }>(null);
+  const [result, setResult] = useState<string[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleAnalyze = () => {
+  const handleAnalyze = async () => {
     setIsAnalyzing(true);
-    setTimeout(() => {
-      // Dummy logic for demo
-      if (
-        ph &&
-        Number(ph) >= 6 &&
-        Number(ph) <= 7 &&
-        moisture &&
-        Number(moisture) >= 30 &&
-        Number(moisture) <= 60
-      ) {
-        setResult({
-          status: "good",
-          message: "Your soil is healthy!",
-          recommendations: [
-            "Maintain current practices.",
-            "Monitor regularly for changes.",
-          ],
-        });
-      } else {
-        setResult({
-          status: "warning",
-          message: "Soil parameters need attention.",
-          recommendations: [
-            "Adjust pH with lime or sulfur as needed.",
-            "Improve moisture with mulching or irrigation.",
-          ],
-        });
-      }
+    setResult(null);
+    setError(null);
+    try {
+      const res = await fetch("/api/soil-analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ location, soilType, ph, moisture }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Unknown error");
+      setResult(data.tips);
+    } catch (err: any) {
+      setError(err.message || "Failed to analyze soil.");
+    } finally {
       setIsAnalyzing(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -198,25 +182,16 @@ export default function SoilManagementPage() {
           </Card>
 
           {/* Analysis Result */}
-          {result && (
-            <Card className="mt-6 border-2 border-green-400">
+          {error && (
+            <Card className="mt-6 border-2 border-red-400">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  {result.status === "good" ? (
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                  ) : (
-                    <AlertCircle className="h-5 w-5 text-yellow-500" />
-                  )}
-                  {result.message}
+                  <AlertCircle className="h-5 w-5 text-red-600" />
+                  Error
                 </CardTitle>
-                <CardDescription>Recommendations:</CardDescription>
               </CardHeader>
               <CardContent>
-                <ul className="list-disc pl-5 space-y-1">
-                  {result.recommendations.map((rec, i) => (
-                    <li key={i}>{rec}</li>
-                  ))}
-                </ul>
+                <div className="text-red-700 dark:text-red-300">{error}</div>
               </CardContent>
             </Card>
           )}
@@ -224,21 +199,33 @@ export default function SoilManagementPage() {
 
         {/* Soil Health Tips */}
         <div className="md:col-span-2 h-full grid">
-          <h2 className="text-2xl font-semibold mb-2 flex items-center gap-2">
-            <Info className="h-5 w-5 text-blue-500" /> Soil Health Tips
+          <h2 className="text-2xl font-semibold  flex items-center gap-2">
+            <Lightbulb className="h-5 w-5 text-yellow-500" /> Soil Health Tips
           </h2>
-          <div className="grid sm:grid-cols-2 gap-6">
-            {soilTips.map((tip, idx) => (
-              <Card key={idx} className="flex flex-col h-full">
-                <CardHeader className="flex flex-row items-center gap-3 pb-2">
-                  {tip.icon}
-                  <CardTitle className="text-lg">{tip.title}</CardTitle>
-                </CardHeader>
-                <CardContent className="flex-1 text-gray-700 dark:text-gray-200">
-                  {tip.desc}
-                </CardContent>
-              </Card>
-            ))}
+          <div className="grid sm:grid-cols-2 gap-6 mt-2">
+            {Array.isArray(result) && result.length > 0
+              ? result.map((tip, idx) => (
+                  <Card key={idx} className="flex flex-col h-full">
+                    <CardHeader className="flex flex-row items-center ">
+                      <Sprout className="h-6 w-6 text-green-600" />
+                      <CardTitle className="text-lg">Tip {idx + 1}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex-1 text-gray-700 dark:text-gray-200">
+                      {tip}
+                    </CardContent>
+                  </Card>
+                ))
+              : soilTips.map((tip, idx) => (
+                  <Card key={idx} className="flex flex-col h-full">
+                    <CardHeader className="flex flex-row items-center  ">
+                      {tip.icon}
+                      <CardTitle className="text-lg">{tip.title}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex-1 text-gray-700 dark:text-gray-200">
+                      {tip.desc}
+                    </CardContent>
+                  </Card>
+                ))}
           </div>
         </div>
       </div>

@@ -11,6 +11,7 @@ import {
 import ClientNavWrapper from "./components/ClientNavWrapper";
 import SupabaseAuthSync from "./components/SupabaseAuthSync";
 import SyncProfile from "./components/SyncProfile";
+import DynamicNavbar from "./components/DynamicNavbar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -41,46 +42,7 @@ export default function RootLayout({
           <SupabaseAuthSync />
           <SyncProfile />
           <SignedIn>
-            <nav className="w-full bg-white dark:bg-gray-900">
-              <div className="w-full mx-auto px-4">
-                <div className="flex items-center h-16">
-                  {/* Left: Navigation Links */}
-                  <div className="flex flex-1 justify-start">
-                    <div className="flex items-center space-x-4">
-                      <Link
-                        href="/"
-                        className="font-bold text-lg hover:underline"
-                      >
-                        Home
-                      </Link>
-                      <Link href="/crop-selection" className="hover:underline">
-                        Crop Selection
-                      </Link>
-                      <Link href="/soil-management" className="hover:underline">
-                        Soil Management
-                      </Link>
-                      <Link
-                        href="/disease-identification"
-                        className="hover:underline"
-                      >
-                        Disease Identification
-                      </Link>
-                      <Link href="/weather" className="hover:underline">
-                        Weather
-                      </Link>
-                      <Link href="/community" className="hover:underline">
-                        Community
-                      </Link>
-                      <Link href="/dashboard" className="hover:underline">
-                        Dashboard
-                      </Link>
-                    </div>
-                  </div>
-                  {/* Right: Auth Buttons */}
-                  <ClientNavWrapper />
-                </div>
-              </div>
-            </nav>
+            <DynamicNavbar />
             {children}
           </SignedIn>
           <SignedOut>

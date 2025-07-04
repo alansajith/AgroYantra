@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Search,
   MapPin,
@@ -16,6 +16,7 @@ import {
   Info,
   CheckCircle,
   AlertCircle,
+  Lightbulb,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useAuth } from "@clerk/nextjs";
 
 interface CropData {
   id: string;
@@ -47,72 +49,140 @@ interface CropData {
   description: string;
 }
 
-const popularCrops: CropData[] = [
-  {
-    id: "1",
-    name: "Tomatoes",
-    category: "Vegetables",
-    season: "Spring/Summer",
-    duration: "60-80 days",
-    yield: "High",
-    difficulty: "Easy",
-    rating: 4.8,
-    image: "🍅",
-    description: "Versatile vegetable perfect for beginners",
-  },
-  {
-    id: "2",
-    name: "Basil",
-    category: "Herbs",
-    season: "Spring/Summer",
-    duration: "30-60 days",
-    yield: "Medium",
-    difficulty: "Easy",
-    rating: 4.6,
-    image: "🌿",
-    description: "Aromatic herb great for cooking",
-  },
-  {
-    id: "3",
-    name: "Bell Peppers",
-    category: "Vegetables",
-    season: "Spring/Summer",
-    duration: "70-90 days",
-    yield: "High",
-    difficulty: "Medium",
-    rating: 4.4,
-    image: "🫑",
-    description: "Colorful and nutritious vegetables",
-  },
-  {
-    id: "4",
-    name: "Lettuce",
-    category: "Leafy Greens",
-    season: "Spring/Fall",
-    duration: "45-60 days",
-    yield: "Medium",
-    difficulty: "Easy",
-    rating: 4.7,
-    image: "🥬",
-    description: "Fast-growing leafy green",
-  },
-];
-
 export default function CropSelectionPage() {
+  const { userId } = useAuth();
+  // Use user-specific key if signed in, else fallback to guest
+  const LS_KEY = userId
+    ? `agroyantra-crop-selection-${userId}`
+    : "agroyantra-crop-selection-guest";
   const [selectedLocation, setSelectedLocation] = useState("");
   const [selectedSeason, setSelectedSeason] = useState("");
   const [selectedSoilType, setSelectedSoilType] = useState("");
   const [selectedExperience, setSelectedExperience] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [recommendations, setRecommendations] = useState<CropData[]>([]);
+  const [popularCropsAI, setPopularCropsAI] = useState<CropData[]>([]);
+  const [weatherAI, setWeatherAI] = useState<{
+    temperature: string;
+    humidity: string;
+    sunlight: string;
+  }>({ temperature: "", humidity: "", sunlight: "" });
+  const [growingTipsAI, setGrowingTipsAI] = useState<string[]>([]);
 
-  const handleAnalyze = () => {
+  useEffect(() => {
+    // On mount, restore state from localStorage if available
+    const saved = localStorage.getItem(LS_KEY);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        console.log("Restoring from localStorage", parsed);
+        setSelectedLocation(parsed.selectedLocation || "");
+        setSelectedSeason(parsed.selectedSeason || "");
+        setSelectedSoilType(parsed.selectedSoilType || "");
+        setSelectedExperience(parsed.selectedExperience || "");
+        setRecommendations(parsed.recommendations || []);
+        setPopularCropsAI(parsed.popularCropsAI || []);
+        setWeatherAI(
+          parsed.weatherAI || { temperature: "", humidity: "", sunlight: "" }
+        );
+        setGrowingTipsAI(parsed.growingTipsAI || []);
+      } catch {}
+    }
+  }, []);
+
+  const saveToLocalStorage = (data: any) => {
+    console.log("Saving to localStorage", data);
+    localStorage.setItem(LS_KEY, JSON.stringify(data));
+  };
+
+  const handleAnalyze = async () => {
     setIsAnalyzing(true);
-    // Simulate API call
-    setTimeout(() => {
-      setRecommendations(popularCrops.slice(0, 3));
+    setRecommendations([]);
+    setPopularCropsAI([]);
+    setWeatherAI({ temperature: "", humidity: "", sunlight: "" });
+    setGrowingTipsAI([]);
+    try {
+      const response = await fetch("/api/crop-selection", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          soilType: selectedSoilType,
+          region: selectedLocation,
+          season: selectedSeason,
+        }),
+      });
+      const data = await response.json();
+      let newRecommendations: CropData[] = [];
+      let newPopularCropsAI: CropData[] = [];
+      let newWeatherAI = { temperature: "", humidity: "", sunlight: "" };
+      let newGrowingTipsAI: string[] = [];
+      // Recommended Crops
+      if (Array.isArray(data.recommendedCrops)) {
+        newRecommendations = data.recommendedCrops.map(
+          (crop: any, idx: number) => ({
+            id: `gemini-rec-${idx}`,
+            name: crop.name || "",
+            category: "Recommended",
+            season: selectedSeason,
+            duration: crop.duration || "-",
+            yield: crop.yield || "-",
+            difficulty: "-",
+            rating: crop.rating || 0,
+            image: "🌱",
+            description: "Recommended by AI based on your inputs.",
+          })
+        );
+        setRecommendations(newRecommendations);
+      }
+      // Popular Crops
+      if (Array.isArray(data.popularCrops)) {
+        newPopularCropsAI = data.popularCrops.map((crop: any, idx: number) => ({
+          id: `gemini-pop-${idx}`,
+          name: crop.name || "",
+          category: "Popular",
+          season: selectedSeason,
+          duration: crop.duration || "-",
+          yield: crop.yield || "-",
+          difficulty: "-",
+          rating: crop.rating || 0,
+          image: "🌱",
+          description: "Popular crop for your region and season.",
+        }));
+        setPopularCropsAI(newPopularCropsAI);
+      }
+      // Weather
+      if (data.weather) {
+        newWeatherAI = {
+          temperature: data.weather.temperature || "",
+          humidity: data.weather.humidity || "",
+          sunlight: data.weather.sunlight || "",
+        };
+        setWeatherAI(newWeatherAI);
+      }
+      // Growing Tips
+      if (Array.isArray(data.growingTips)) {
+        newGrowingTipsAI = data.growingTips;
+        setGrowingTipsAI(newGrowingTipsAI);
+      }
+      // Save to localStorage after successful fetch and state update
+      saveToLocalStorage({
+        selectedLocation,
+        selectedSeason,
+        selectedSoilType,
+        selectedExperience,
+        recommendations: newRecommendations,
+        popularCropsAI: newPopularCropsAI,
+        weatherAI: newWeatherAI,
+        growingTipsAI: newGrowingTipsAI,
+      });
+    } catch (error) {
+      setRecommendations([]);
+      setPopularCropsAI([]);
+      setWeatherAI({ temperature: "", humidity: "", sunlight: "" });
+      setGrowingTipsAI([]);
+    } finally {
       setIsAnalyzing(false);
-    }, 2000);
+    }
   };
 
   return (
@@ -283,7 +353,7 @@ export default function CropSelectionPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Thermometer className="h-5 w-5" />
+                  <Thermometer className="w-6 h-6 flex-shrink-0 text-blue-600 dark:text-blue-400" />
                   Climate Conditions
                 </CardTitle>
                 <CardDescription>
@@ -294,35 +364,35 @@ export default function CropSelectionPage() {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="flex items-center gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                    <Thermometer className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                    <Thermometer className="w-6 h-6 flex-shrink-0 text-blue-600 dark:text-blue-400" />
                     <div>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
                         Temperature
                       </p>
                       <p className="font-semibold text-blue-900 dark:text-blue-100">
-                        24°C - 32°C
+                        {weatherAI.temperature || "—"}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 p-4 bg-cyan-50 dark:bg-cyan-900/20 rounded-lg">
-                    <Droplets className="h-6 w-6 text-cyan-600 dark:text-cyan-400" />
+                    <Droplets className="w-6 h-6 flex-shrink-0 text-cyan-600 dark:text-cyan-400" />
                     <div>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
                         Humidity
                       </p>
                       <p className="font-semibold text-cyan-900 dark:text-cyan-100">
-                        65% - 75%
+                        {weatherAI.humidity || "—"}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-                    <Sun className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
+                    <Sun className="w-6 h-6 flex-shrink-0 text-yellow-600 dark:text-yellow-400" />
                     <div>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
                         Sunlight
                       </p>
                       <p className="font-semibold text-yellow-900 dark:text-yellow-100">
-                        6-8 hours
+                        {weatherAI.sunlight || "—"}
                       </p>
                     </div>
                   </div>
@@ -405,40 +475,46 @@ export default function CropSelectionPage() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {popularCrops.map((crop) => (
-                    <div
-                      key={crop.id}
-                      className="p-4 border rounded-lg hover:shadow-md transition-shadow"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="text-3xl">{crop.image}</div>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between mb-1">
-                            <h3 className="font-semibold">{crop.name}</h3>
-                            <div className="flex items-center gap-1">
-                              <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                              <span className="text-xs text-gray-600 dark:text-gray-400">
-                                {crop.rating}
+                  {popularCropsAI.length > 0 ? (
+                    popularCropsAI.map((crop) => (
+                      <div
+                        key={crop.id}
+                        className="p-4 border rounded-lg hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="text-3xl">{crop.image}</div>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-1">
+                              <h3 className="font-semibold">{crop.name}</h3>
+                              <div className="flex items-center gap-1">
+                                <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                                <span className="text-xs text-gray-600 dark:text-gray-400">
+                                  {crop.rating}
+                                </span>
+                              </div>
+                            </div>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                              {crop.description}
+                            </p>
+                            <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+                              <span className="flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
+                                {crop.season}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {crop.duration}
                               </span>
                             </div>
                           </div>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                            {crop.description}
-                          </p>
-                          <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-                            <span className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              {crop.season}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {crop.duration}
-                            </span>
-                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    <p className="text-gray-500">
+                      No popular crops found for your selection.
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -447,7 +523,7 @@ export default function CropSelectionPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Info className="h-5 w-5" />
+                  <Lightbulb className="h-5 w-5 text-yellow-500" />
                   Growing Tips
                 </CardTitle>
                 <CardDescription>
@@ -456,44 +532,36 @@ export default function CropSelectionPage() {
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4">
-                  <div className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                    <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
-                    <div>
-                      <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-1">
-                        Soil Preparation
-                      </h4>
-                      <p className="text-sm text-blue-800 dark:text-blue-200">
-                        Ensure your soil is well-draining and rich in organic
-                        matter. Test soil pH and add necessary amendments before
-                        planting.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                    <AlertCircle className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5" />
-                    <div>
-                      <h4 className="font-medium text-green-900 dark:text-green-100 mb-1">
-                        Watering Schedule
-                      </h4>
-                      <p className="text-sm text-green-800 dark:text-green-200">
-                        Water consistently but avoid overwatering. Most crops
-                        prefer deep, infrequent watering rather than shallow,
-                        frequent watering.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-                    <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mt-0.5" />
-                    <div>
-                      <h4 className="font-medium text-yellow-900 dark:text-yellow-100 mb-1">
-                        Sunlight Requirements
-                      </h4>
-                      <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                        Most vegetables need 6-8 hours of direct sunlight daily.
-                        Position your garden to maximize sun exposure.
-                      </p>
-                    </div>
-                  </div>
+                  {growingTipsAI.length > 0 ? (
+                    growingTipsAI.map((tip, idx) => {
+                      // Remove asterisks and leading/trailing whitespace
+                      const cleanTip = tip
+                        .replace(/\*+/g, "")
+                        .replace(/^\s+|\s+$/g, "");
+                      return (
+                        <div
+                          key={idx}
+                          className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg"
+                        >
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <Lightbulb className="h-5 w-5 text-yellow-500" />
+                              <span className="font-semibold text-green-700 dark:text-green-300">
+                                Tip {idx + 1}
+                              </span>
+                            </div>
+                            <p className="text-sm text-blue-800 dark:text-blue-200">
+                              {cleanTip}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="text-gray-500">
+                      No tips found for your selection.
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>
