@@ -14,7 +14,7 @@ const navBgByRoute: Record<string, string> = {
 };
 
 export default function DynamicNavbar() {
-  const pathname = usePathname();
+  const pathname = usePathname() || "/";
   // Default to white if not found
   const navBg = navBgByRoute[pathname] || "bg-white/80";
 
